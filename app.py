@@ -13,110 +13,102 @@ load_dotenv()
 def create_vectors_of_knowledge_base(pdf_bytes: bytes, collection_name: str):
     """
     Create vectors from a PDF and store in Qdrant.
-    Args:
-        pdf_bytes (bytes): The PDF file content in bytes.
-        collection_name (str): The name of the Qdrant collection to store vectors.
-    Returns:
-        list[Document]: A list of Document objects containing the text and metadata.
     """
-    def load_pdf_from_bytes(pdf_bytes: bytes) -> list[Document]:
-        doc = pymupdf.open(stream=pdf_bytes, filetype="pdf")
-        documents = []
-        for page_num in range(len(doc)):
-            page = doc.load_page(page_num)
-            text = page.get_text()
-            metadata = {"page_number": page_num + 1}
-            documents.append(Document(page_content=text, metadata=metadata))
-        return documents
+    try:
+        def load_pdf_from_bytes(pdf_bytes: bytes) -> list[Document]:
+            doc = pymupdf.open(stream=pdf_bytes, filetype="pdf")
+            documents = []
+            for page_num in range(len(doc)):
+                page = doc.load_page(page_num)
+                text = page.get_text()
+                metadata = {"page_number": page_num + 1}
+                documents.append(Document(page_content=text, metadata=metadata))
+            return documents
 
-    docs = load_pdf_from_bytes(pdf_bytes)
+        docs = load_pdf_from_bytes(pdf_bytes)
 
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=300)
-    texts = text_splitter.split_documents(docs)
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=300)
+        texts = text_splitter.split_documents(docs)
 
-    embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+        embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
 
-    QdrantVectorStore.from_documents(
-        documents=texts,
-        embedding=embeddings,
-        api_key=os.getenv("QDRANT_API_KEY"),
-        url=os.getenv("QDRANT_URL"),
-        collection_name=collection_name,
-    )
+        QdrantVectorStore.from_documents(
+            documents=texts,
+            embedding=embeddings,
+            api_key=os.getenv("QDRANT_API_KEY"),
+            url=os.getenv("QDRANT_URL"),
+            collection_name=collection_name,
+        )
 
-    print(f"Vectors created and stored in Qdrant collection: {collection_name}")
-    return texts
-
+        print(f"Vectors created and stored in Qdrant collection: {collection_name}")
+        return texts
+    except Exception as e:
+        print(f"[ERROR] Failed to create vectors: {e}")
+        raise
 
 # --- Prompt Constructor ---
 def create_system_prompt(user_input: str, collection_name):
     """
     Construct system prompt based on similarity search for user input.
-    Args:
-        user_input (str): The user's query.
-        collection_name (str): The name of the Qdrant collection to search.
-    Returns:
-        list[dict]: A list of dictionaries representing the system prompt.
     """
-    embedding_model = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+    try:
+        embedding_model = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
 
-    vector_db = QdrantVectorStore.from_existing_collection(
-        url=os.getenv("QDRANT_URL"),
-        api_key=os.getenv("QDRANT_API_KEY"),
-        collection_name=collection_name,
-        embedding=embedding_model
-    )
+        vector_db = QdrantVectorStore.from_existing_collection(
+            url=os.getenv("QDRANT_URL"),
+            api_key=os.getenv("QDRANT_API_KEY"),
+            collection_name=collection_name,
+            embedding=embedding_model
+        )
 
-    search_results = vector_db.similarity_search(query=user_input)
+        search_results = vector_db.similarity_search(query=user_input)
 
-    context = "\n\n\n".join([
-        f"Page Content: {result.page_content}\nPage Number: {result.metadata.get('page_number')}"
-        for result in search_results
-    ])
+        context = "\n\n\n".join([
+            f"Page Content: {result.page_content}\nPage Number: {result.metadata.get('page_number')}"
+            for result in search_results
+        ])
 
-    system_prompt = [
-        {
-            "role": "system",
-            "content": f"""You are a helpful AI Assistant who answers user queries based on the available context
-            retrieved from a PDF file along with page_contents and page number.
+        system_prompt = [
+            {
+                "role": "system",
+                "content": f"""You are a helpful AI Assistant who answers user queries based on the available context
+                retrieved from a PDF file along with page_contents and page number.
 
-            You should only answer the user based on the following context and navigate the user
-            to open the right page number to know more.
+                You should only answer the user based on the following context and navigate the user
+                to open the right page number to know more.
 
-            Context:
-            {context}"""
-        },
-        {
-            "role": "user",
-            "content": user_input
-        }
-    ]
+                Context:
+                {context}"""
+            },
+            {
+                "role": "user",
+                "content": user_input
+            }
+        ]
 
-    return system_prompt
-
+        return system_prompt
+    except Exception as e:
+        print(f"[ERROR] Failed to create system prompt: {e}")
+        raise
 
 # --- Chat Handler ---
 def chat_with_bot(system_prompt, model, max_tokens, temperature):
     """
     Use Gemini Pro to answer using system prompt.
-    Args:
-        system_prompt (list[dict]): The system prompt to guide the AI.
-        model (str): The model name to use for the chat.
-        max_tokens (int): Maximum number of tokens for the response.
-        temperature (float): Temperature setting for response creativity.
-    Returns:
-        str: The AI's response content.
     """
-    llm = ChatGoogleGenerativeAI(
-        model=model,
-        temperature=temperature,
-        max_output_tokens=max_tokens,
-        google_api_key=os.getenv("GOOGLE_API_KEY")
-    )
+    try:
+        llm = ChatGoogleGenerativeAI(
+            model=model,
+            temperature=temperature,
+            max_output_tokens=max_tokens,
+            google_api_key=os.getenv("GOOGLE_API_KEY")
+        )
 
-    response = llm.invoke(system_prompt)
-    return response.content
-
+        response = llm.invoke(system_prompt)
+        return response.content
+    except Exception as e:
+        print(f"[ERROR] Failed to generate chat response: {e}")
+        raise
 
 # --- Streamlit App UI ---
 st.set_page_config(page_title="AI Help Desk", layout="wide")
@@ -164,7 +156,6 @@ with st.sidebar:
 
     uploaded_file = st.file_uploader("Upload PDF File", type="pdf")
 
-
 # Chat history
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
@@ -172,21 +163,23 @@ if "chat_history" not in st.session_state:
 # PDF Upload
 if uploaded_file and "vector_store" not in st.session_state:
     with st.spinner("Processing PDF..."):
+        try:
+            docs = create_vectors_of_knowledge_base(uploaded_file.read(), collection_name)
 
-        docs = create_vectors_of_knowledge_base(uploaded_file.read(), collection_name)
+            embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+            qdrant_url = os.getenv("QDRANT_URL")
 
-        embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
-        qdrant_url = os.getenv("QDRANT_URL")
+            vector_store = QdrantVectorStore.from_documents(
+                documents=docs,
+                embedding=embeddings,
+                url=qdrant_url,
+                collection_name=collection_name
+            )
 
-        vector_store = QdrantVectorStore.from_documents(
-            documents=docs,
-            embedding=embeddings,
-            url=qdrant_url,
-            collection_name=collection_name
-        )
-
-        st.session_state.vector_store = vector_store
-        st.session_state.docs = docs
+            st.session_state.vector_store = vector_store
+            st.session_state.docs = docs
+        except Exception as e:
+            st.error(f"Failed to process PDF or create vector store: {e}")
 
 # Chat Input
 st.markdown("---")
@@ -196,10 +189,12 @@ if user_query:
     st.session_state.chat_history.append(("user", user_query))
 
     with st.spinner("Searching and answering..."):
-        system_prompt = create_system_prompt(user_query, collection_name)
-        response = chat_with_bot(system_prompt, model_name, max_tokens, temperature)
-
-    st.session_state.chat_history.append(("ai", response))
+        try:
+            system_prompt = create_system_prompt(user_query, collection_name)
+            response = chat_with_bot(system_prompt, model_name, max_tokens, temperature)
+            st.session_state.chat_history.append(("ai", response))
+        except Exception as e:
+            st.error(f"Error while processing your query: {e}")
 
 # Display chat history
 for role, msg in st.session_state.chat_history:
