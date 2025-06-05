@@ -1,0 +1,11 @@
+dotenv==0.9.9
+google-ai-generativelanguage==0.6.18
+google-api-core==2.25.0
+langchain==0.3.25
+langchain-google-genai==2.1.5
+langchain-qdrant==0.2.0
+langchain-text-splitters==0.3.8
+PyMuPDF==1.26.0
+python-dotenv==1.1.0
+qdrant-client==1.14.2
+streamlit==1.45.1
