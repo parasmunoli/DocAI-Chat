@@ -39,7 +39,8 @@ def create_vectors_of_knowledge_base(pdf_bytes: bytes, collection_name: str):
     QdrantVectorStore.from_documents(
         documents=texts,
         embedding=embeddings,
-        url='http://localhost:6333',
+        api_key=os.getenv("QDRANT_API_KEY"),
+        url=os.getenv("QDRANT_URL"),
         collection_name=collection_name,
     )
 
@@ -60,7 +61,8 @@ def create_system_prompt(user_input: str, collection_name):
     embedding_model = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
 
     vector_db = QdrantVectorStore.from_existing_collection(
-        url="http://localhost:6333",
+        url=os.getenv("QDRANT_URL"),
+        api_key=os.getenv("QDRANT_API_KEY"),
         collection_name=collection_name,
         embedding=embedding_model
     )
