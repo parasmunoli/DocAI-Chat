@@ -327,7 +327,7 @@ if user_query and collection_name:
         try:
             system_prompt = create_system_prompt(
                 user_query,
-                st.session_state.collection_name,
+                collection_name,
                 st.session_state.qdrant_client
             )
             response = chat_with_bot(system_prompt, model_name, max_tokens, temperature)
