@@ -92,12 +92,17 @@ def search_documents(collection_name, query_embedding):
         search_results (list): List of search results with payload.
     """
     try:
-        search_results = client.query_points(
+        response = client.query_points(
             collection_name=collection_name,
-            query_vector=query_embedding,
+            query=query_embedding,
             with_payload=True,
+            limit=5
         )
-        return search_results
+        combined = {
+            'payload': [point.payload['page_content'] for point in response.points],
+            'pagenumber': [point.payload['page_number'] for point in response.points]
+        }
+        return combined
     except Exception as e:
         print(f"Error searching documents: {e}")
         return []
@@ -119,17 +124,15 @@ def create_system_prompt(user_input, collection_name):
 
         print(f"Found relevant documents for the query.")
 
-        # Format context from search results
         context = "\n\n\n".join([
-            f"Page Content: {result.page_content}\nPage Number: {result.metadata.get('page_number')}"
-            for result in search_results
+            f"Page Content: {search_results['payload'][res]}\nPage Number: {search_results['pagenumber'][res]}\n\n"
+            for res in range(len(search_results['payload']))
         ])
 
         system_prompt = [
             {
                 "role": "system",
-                "content": f"""You are a helpful AI Assistant who answers user queries based on the available context
-                retrieved from a PDF file along with page_contents and page number.
+                "content": f"""You are a helpful AI Assistant who answers user queries based on the available context retrieved from a PDF file along with page_contents and page number.
 
                 You should only answer the user based on the following context and navigate the user
                 to open the right page number to know more.
@@ -169,8 +172,11 @@ def chat_with_bot(system_prompt, model, max_tokens, temperature):
             max_output_tokens=max_tokens,
             google_api_key=os.getenv("GOOGLE_API_KEY")
         )
+        print("System prompt:", system_prompt)
 
         response = llm.invoke(system_prompt)
+
+        print("Response:", response)
         return response.content
     except Exception as e:
         print(f"[ERROR] Failed to generate chat response: {e}")
