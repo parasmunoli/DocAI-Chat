@@ -6,12 +6,11 @@ from dotenv import load_dotenv
 from langchain.schema import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
-from langchain_qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct
 
 load_dotenv()
-
+client = QdrantClient(host=os.getenv('QDRANT_URL'), port=6333)
 
 # Initialize Qdrant client
 def get_qdrant_client():
@@ -23,7 +22,7 @@ def get_qdrant_client():
     )
 
 
-# Create collection if it doesn't exist
+# --- Collection Management ---
 def create_collection_if_not_exists(client, collection_name, vector_size):
     """
     Create a Qdrant collection if it does not already exist.
@@ -35,16 +34,10 @@ def create_collection_if_not_exists(client, collection_name, vector_size):
         None
     """
     try:
-        collections = client.get_collections()
-        existing_collections = [col.name for col in collections.collections]
-
-        if collection_name not in existing_collections:
+        if not client.collection_exists(collection_name):
             client.create_collection(
-                collection_name=collection_name,
-                vectors_config=VectorParams(
-                    size=vector_size,
-                    distance=Distance.COSINE,
-                ),
+                collection_name="my_collection",
+                vectors_config=VectorParams(size=100, distance=Distance.COSINE),
             )
             print(f"Collection '{collection_name}' created successfully")
         else:
@@ -57,7 +50,7 @@ def create_collection_if_not_exists(client, collection_name, vector_size):
 # --- Indexing: Create vector DB from PDF ---
 def create_vectors_of_knowledge_base(pdf_bytes, collection_name, chunk_overlap, chunk_size):
     """
-    Create vectors from a PDF and store in Qdrant using direct client.
+    Create vectors from a PDF and store in Qdrant using direct a client.
     Args:
         pdf_bytes (bytes): The PDF file content as bytes.
         collection_name (str): The name of the Qdrant collection to store vectors.
@@ -90,20 +83,11 @@ def create_vectors_of_knowledge_base(pdf_bytes, collection_name, chunk_overlap, 
         texts = text_splitter.split_documents(docs)
 
         embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
-
-        # Get Qdrant client
         client = get_qdrant_client()
-
-        # Generate embeddings for all documents
         document_embeddings = embeddings.embed_documents([doc.page_content for doc in texts])
-
-        # Get vector size from first embedding
         vector_size = len(document_embeddings[0])
-
-        # Create collection if it doesn't exist
         create_collection_if_not_exists(client, collection_name, vector_size)
 
-        # Prepare points for insertion
         points = []
         for i, (doc, embedding) in enumerate(zip(texts, document_embeddings)):
             point = PointStruct(
@@ -134,23 +118,20 @@ def create_vectors_of_knowledge_base(pdf_bytes, collection_name, chunk_overlap, 
         raise
 
 
-# Function to search documents using Qdrant client
-def search_documents(collection_name, query_embedding, limit=4):
+# --- Search Documents ---
+def search_documents(collection_name, query_embedding):
     """
     Search documents in Qdrant collection
     Args:
         collection_name (str): The name of the Qdrant collection to search.
         query_embedding (list): The embedding vector for the query.
-        limit (int): The maximum number of results to return.
     Returns:
         search_results (list): List of search results with payload.
     """
     try:
-        client = get_qdrant_client()
         search_results = client.query_points(
             collection_name=collection_name,
             query_vector=query_embedding,
-            limit=limit,
             with_payload=True,
         )
         return search_results
@@ -160,7 +141,7 @@ def search_documents(collection_name, query_embedding, limit=4):
 
 
 # --- Prompt Constructor ---
-def create_system_prompt(user_input, collection_name, client):
+def create_system_prompt(user_input, collection_name):
     """
     Construct system prompt based on similarity search for user input.
     Args:
@@ -172,15 +153,9 @@ def create_system_prompt(user_input, collection_name, client):
     try:
         embedding_model = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
         query_embedding = embedding_model.embed_query(user_input)
+        search_results = search_documents(collection_name, query_embedding)
 
-        search_results = client.search(
-            collection_name=collection_name,
-            query_vector=query_embedding,
-            limit=5,
-            with_payload=True,
-        )
-
-        print(f"Found {len(search_results)} relevant documents for the query.")
+        print(f"Found relevant documents for the query.")
 
         # Format context from search results
         context = "\n\n\n".join([
@@ -328,7 +303,6 @@ if user_query and collection_name:
             system_prompt = create_system_prompt(
                 user_query,
                 collection_name,
-                st.session_state.qdrant_client
             )
             response = chat_with_bot(system_prompt, model_name, max_tokens, temperature)
             st.session_state.chat_history.append(("ai", response))
