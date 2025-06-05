@@ -10,12 +10,12 @@ from langchain_qdrant import QdrantVectorStore
 load_dotenv()
 
 # --- Indexing: Create vector DB from PDF ---
-def create_vectors_of_knowledge_base(pdf_bytes: bytes, collection_name: str):
+def create_vectors_of_knowledge_base(pdf_bytes, collection_name):
     """
     Create vectors from a PDF and store in Qdrant.
     """
     try:
-        def load_pdf_from_bytes(pdf_bytes: bytes) -> list[Document]:
+        def load_pdf_from_bytes(pdf_bytes):
             doc = pymupdf.open(stream=pdf_bytes, filetype="pdf")
             documents = []
             for page_num in range(len(doc)):
@@ -36,6 +36,7 @@ def create_vectors_of_knowledge_base(pdf_bytes: bytes, collection_name: str):
             documents=texts,
             embedding=embeddings,
             api_key=os.getenv("QDRANT_API_KEY"),
+            prefer_grpc=True,
             url=os.getenv("QDRANT_URL"),
             collection_name=collection_name,
         )
@@ -47,7 +48,7 @@ def create_vectors_of_knowledge_base(pdf_bytes: bytes, collection_name: str):
         raise
 
 # --- Prompt Constructor ---
-def create_system_prompt(user_input: str, collection_name):
+def create_system_prompt(user_input, collection_name):
     """
     Construct system prompt based on similarity search for user input.
     """
