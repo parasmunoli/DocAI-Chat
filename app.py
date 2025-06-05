@@ -117,8 +117,8 @@ def chat_with_bot(system_prompt, model, max_tokens, temperature):
 
 
 # --- Streamlit App UI ---
-st.set_page_config(page_title="Simple RAG Agent", layout="wide")
-st.markdown("<h2 style='color:#DADADA;'>Simple RAG Agent</h2>", unsafe_allow_html=True)
+st.set_page_config(page_title="AI Help Desk", layout="wide")
+st.markdown("<h2 style='color:#DADADA;'>AI Help Desk</h2>", unsafe_allow_html=True)
 st.markdown(
     "<p style='color:#AAAAAA; font-size:16px;'>Your document isn’t just a file anymore, it’s your personal help assistant.</p>",
     unsafe_allow_html=True
