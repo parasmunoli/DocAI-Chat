@@ -12,14 +12,6 @@ from qdrant_client.models import Distance, VectorParams, PointStruct
 load_dotenv()
 client = QdrantClient(host="ai-pdf-qna.streamlit.app", port=6333)
 
-# Initialize Qdrant client
-def get_qdrant_client():
-    """Get Qdrant client instance"""
-    return QdrantClient(
-        url=os.getenv("QDRANT_URL"),
-        api_key=os.getenv("QDRANT_API_KEY"),
-        prefer_grpc=True,
-    )
 
 
 # --- Collection Management ---
@@ -83,7 +75,6 @@ def create_vectors_of_knowledge_base(pdf_bytes, collection_name, chunk_overlap, 
         texts = text_splitter.split_documents(docs)
 
         embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
-        client = get_qdrant_client()
         document_embeddings = embeddings.embed_documents([doc.page_content for doc in texts])
         vector_size = len(document_embeddings[0])
         create_collection_if_not_exists(client, collection_name, vector_size)
@@ -146,7 +137,6 @@ def create_system_prompt(user_input, collection_name):
     Construct system prompt based on similarity search for user input.
     Args:
         user_input (str): The user's query input.
-        collection_name (str): The name of the Qdrant collection to search.
     Returns:
         system_prompt (list): A list of messages formatted for the AI model.
     """
@@ -226,7 +216,7 @@ st.markdown(
 # Sidebar
 with st.sidebar:
     st.markdown("## RAG CHAT APP")
-    collection_name = st.text_input("Enter VectorDB Collection Name", value="")
+    collection_name = "RAG_Chat"
     model_name = st.selectbox(
         "Choose Language Model",
         options=["gemini-1.5-flash", "gemini-2.0-flash"],
