@@ -10,7 +10,7 @@ from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct
 
 load_dotenv()
-client = QdrantClient(host=os.getenv('QDRANT_URL'), port=6333)
+client = QdrantClient(host="ai-pdf-qna.streamlit.app", port=6333)
 
 # Initialize Qdrant client
 def get_qdrant_client():
