@@ -238,6 +238,17 @@ if "chat_history" not in st.session_state:
 # PDF Upload Processing
 if uploaded_file and collection_name and "pdf_processed" not in st.session_state:
     with st.spinner("Processing PDF..."):
+        if not client.collection_exists(collection_name=collection_name):
+            embedding_model = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+            dummy_vector = embedding_model.embed_query("test vector")
+            vector_size = len(dummy_vector)
+
+            client.recreate_collection(
+                collection_name=collection_name,
+                vectors_config={
+                    "default": VectorParams(size=vector_size, distance=Distance.COSINE)
+                }
+            )
         try:
             docs = create_vectors_of_knowledge_base(
                 uploaded_file.read(),
