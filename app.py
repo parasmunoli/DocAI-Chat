@@ -160,7 +160,7 @@ def search_documents(collection_name, query_embedding, limit=4):
 
 
 # --- Prompt Constructor ---
-def create_system_prompt(user_input, collection_name):
+def create_system_prompt(user_input, collection_name, client):
     """
     Construct system prompt based on similarity search for user input.
     Args:
@@ -171,14 +171,13 @@ def create_system_prompt(user_input, collection_name):
     """
     try:
         embedding_model = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
-        vector_db = QdrantVectorStore.from_existing_collection(
-            url=os.getenv("QDRANT_URL"),
-            collection_name=collection_name,
-            embedding=embedding_model
-        )
+        query_embedding = embedding_model.embed_query(user_input)
 
-        search_results = vector_db.similarity_search(
-            query=user_input,
+        search_results = client.search(
+            collection_name=collection_name,
+            query_vector=query_embedding,
+            limit=5,
+            with_payload=True,
         )
 
         print(f"Found {len(search_results)} relevant documents for the query.")
@@ -326,7 +325,11 @@ if user_query and collection_name:
 
     with st.spinner("Searching and answering..."):
         try:
-            system_prompt = create_system_prompt(user_query, collection_name)
+            system_prompt = create_system_prompt(
+                user_query,
+                st.session_state.collection_name,
+                st.session_state.qdrant_client
+            )
             response = chat_with_bot(system_prompt, model_name, max_tokens, temperature)
             st.session_state.chat_history.append(("ai", response))
         except Exception as e:
