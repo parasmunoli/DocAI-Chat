@@ -1,15 +1,16 @@
 import os
+import uuid
 import pymupdf
 import streamlit as st
-import uuid
 from dotenv import load_dotenv
 from langchain.schema import Document
+from qdrant_client import QdrantClient
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
-from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct
 
 load_dotenv()
+
 client = QdrantClient(url=os.getenv("QDRANT_URL"), api_key=os.getenv("QDRANT_API_KEY"))
 
 
@@ -89,7 +90,7 @@ def search_documents(collection_name, query_embedding):
         collection_name (str): The name of the Qdrant collection to search.
         query_embedding (list): The embedding vector for the query.
     Returns:
-        search_results (list): List of search results with payload.
+        combined (dict): Dictionary containing payload and page numbers of the results.
     """
     try:
         response = client.query_points(
@@ -114,6 +115,7 @@ def create_system_prompt(user_input, collection_name):
     Construct system prompt based on similarity search for user input.
     Args:
         user_input (str): The user's query input.
+        collection_name (str): The name of the Qdrant collection to search.
     Returns:
         system_prompt (list): A list of messages formatted for the AI model.
     """
@@ -191,7 +193,6 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Sidebar
 with st.sidebar:
     st.markdown("## RAG CHAT APP")
     collection_name = "RAG_Chat"
@@ -237,11 +238,9 @@ with st.sidebar:
 
     uploaded_file = st.file_uploader("Upload PDF File", type="pdf")
 
-# Chat history
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
-# PDF Upload Processing
 if uploaded_file and collection_name and "pdf_processed" not in st.session_state:
     with st.spinner("Processing PDF..."):
         if not client.collection_exists(collection_name=collection_name):
@@ -292,6 +291,5 @@ if user_query and collection_name:
 elif user_query and not collection_name:
     st.warning("Please enter a collection name before chatting.")
 
-# Display chat history
 for role, msg in st.session_state.chat_history:
     st.chat_message("user" if role == "user" else "assistant").write(msg)
