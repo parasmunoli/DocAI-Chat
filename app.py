@@ -148,7 +148,7 @@ with st.sidebar:
         "Max Output Tokens",
         min_value=1000,
         max_value=5000,
-        value=2000,
+        value=3000,
         step=100,
         help="Controls the maximum length of the model's response."
     )
@@ -176,7 +176,7 @@ if uploaded_file and "vector_store" not in st.session_state:
         docs = create_vectors_of_knowledge_base(uploaded_file.read(), collection_name)
 
         embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
-        qdrant_url = os.getenv("QDRANT_URL", "http://localhost:6333")
+        qdrant_url = os.getenv("QDRANT_URL")
 
         vector_store = QdrantVectorStore.from_documents(
             documents=docs,
