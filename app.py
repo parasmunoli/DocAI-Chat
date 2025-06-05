@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from langchain.schema import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
+from langchain_qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct
 
@@ -170,16 +171,21 @@ def create_system_prompt(user_input, collection_name):
     """
     try:
         embedding_model = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+        vector_db = QdrantVectorStore.from_existing_collection(
+            url=os.getenv("QDRANT_URL"),
+            collection_name=collection_name,
+            embedding=embedding_model
+        )
 
-        # Generate query embedding
-        query_embedding = embedding_model.embed_query(user_input)
+        search_results = vector_db.similarity_search(
+            query=user_input,
+        )
 
-        # Search using Qdrant client
-        search_results = search_documents(collection_name, query_embedding)
+        print(f"Found {len(search_results)} relevant documents for the query.")
 
         # Format context from search results
         context = "\n\n\n".join([
-            f"Page Content: {result.payload['page_content']}\nPage Number: {result.payload.get('page_number', 'Unknown')}"
+            f"Page Content: {result.page_content}\nPage Number: {result.metadata.get('page_number')}"
             for result in search_results
         ])
 
@@ -200,6 +206,7 @@ def create_system_prompt(user_input, collection_name):
                 "content": user_input
             }
         ]
+        print("System prompt created successfully.")
 
         return system_prompt
     except Exception as e:
@@ -211,6 +218,13 @@ def create_system_prompt(user_input, collection_name):
 def chat_with_bot(system_prompt, model, max_tokens, temperature):
     """
     Use Gemini Pro to answer using system prompt.
+    Args:
+        system_prompt (list): The system prompt containing context and user query.
+        model (str): The model to use for generating responses.
+        max_tokens (int): Maximum number of tokens for the response.
+        temperature (float): Temperature setting for response creativity.
+    Returns:
+        response (str): The AI-generated response to the user's query.
     """
     try:
         llm = ChatGoogleGenerativeAI(
