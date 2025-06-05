@@ -243,7 +243,7 @@ if uploaded_file and collection_name and "pdf_processed" not in st.session_state
             dummy_vector = embedding_model.embed_query("test vector")
             vector_size = len(dummy_vector)
 
-            client.recreate_collection(
+            client.collection_exists(
                 collection_name=collection_name,
                 vectors_config={
                     "default": VectorParams(size=vector_size, distance=Distance.COSINE)
