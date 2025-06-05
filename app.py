@@ -13,31 +13,6 @@ load_dotenv()
 client = QdrantClient(url=os.getenv("QDRANT_URL"), api_key=os.getenv("QDRANT_API_KEY"))
 
 
-# --- Collection Management ---
-def create_collection_if_not_exists(client, collection_name, vector_size):
-    """
-    Create a Qdrant collection if it does not already exist.
-    Args:
-        client (QdrantClient): The Qdrant client instance.
-        collection_name (str): The name of the collection to create.
-        vector_size (int): The size of the vectors in the collection.
-    Returns:
-        None
-    """
-    try:
-        if not client.collection_exists(collection_name):
-            client.create_collection(
-                collection_name="my_collection",
-                vectors_config=VectorParams(size=100, distance=Distance.COSINE),
-            )
-            print(f"Collection '{collection_name}' created successfully")
-        else:
-            print(f"Collection '{collection_name}' already exists")
-    except Exception as e:
-        print(f"Error creating collection: {e}")
-        raise
-
-
 # --- Indexing: Create vector DB from PDF ---
 def create_vectors_of_knowledge_base(pdf_bytes, collection_name, chunk_overlap, chunk_size):
     """
@@ -75,8 +50,6 @@ def create_vectors_of_knowledge_base(pdf_bytes, collection_name, chunk_overlap, 
 
         embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
         document_embeddings = embeddings.embed_documents([doc.page_content for doc in texts])
-        vector_size = len(document_embeddings[0])
-        create_collection_if_not_exists(client, collection_name, vector_size)
 
         points = []
         for i, (doc, embedding) in enumerate(zip(texts, document_embeddings)):
